@@ -194,18 +194,19 @@
     </form>
   </dialog>
 
-  <script>
+    <script>
     // ==========================================
     // 1. SUPABASE CONFIGURATION
     // ==========================================
     const SUPABASE_URL = "https://zfghphyxvlkpwiurxpxz.supabase.co"; 
-    const SUPABASE_ANON_KEY = "sb_publishable_kWvz7UISrwmnmMKD66P4yw_VYN4lllz"; // <-- REPLACE THIS WITH YOUR KEY
+    const SUPABASE_ANON_KEY = "sb_publishable_kWvz7UISrwmnmMKD66P4yw_VYN4lllz"; // Your key is already here!
     
     if (typeof window.supabase === 'undefined') {
       console.error("❌ Supabase library failed to load. Check your internet connection.");
     }
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Renamed to supabaseClient to avoid global naming collisions
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     console.log("✅ Supabase client initialized.");
 
     // ==========================================
@@ -229,12 +230,12 @@
     const submitBtn = document.getElementById("submitBtn");
 
     // ==========================================
-    // 3. AUTHENTICATION LOGIC (With Error Handling)
+    // 3. AUTHENTICATION LOGIC
     // ==========================================
     async function checkAuth() {
       try {
         console.log("Checking authentication...");
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await supabaseClient.auth.getSession();
         
         if (error) {
           console.error("❌ Supabase auth error:", error.message);
@@ -260,7 +261,7 @@
       }
     }
 
-    supabase.auth.onAuthStateChange((event, session) => {
+    supabaseClient.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event);
       if (event === 'SIGNED_IN' && session) {
         appEl.classList.remove("hidden");
@@ -282,7 +283,7 @@
       const password = document.getElementById("authPassword").value;
 
       console.log("Attempting login for:", email);
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
       
       if (error) {
         console.error("❌ Login failed:", error.message);
@@ -295,7 +296,7 @@
 
     logoutBtn.addEventListener("click", async (e) => {
       e.preventDefault();
-      await supabase.auth.signOut();
+      await supabaseClient.auth.signOut();
     });
 
     // ==========================================
@@ -303,7 +304,7 @@
     // ==========================================
     async function fetchWishes() {
       console.log("Fetching wishes from database...");
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from("wishlist_items")
         .select("*")
         .order("created_at", { ascending: false });
@@ -322,7 +323,7 @@
       if (realtimeChannel) return; 
       
       console.log("Setting up realtime sync...");
-      realtimeChannel = supabase
+      realtimeChannel = supabaseClient
         .channel("wishlist-changes")
         .on(
           "postgres_changes",
@@ -410,12 +411,12 @@
 
       if (editId) {
         console.log("Updating wish:", editId);
-        const res = await supabase.from("wishlist_items").update(payload).eq("id", editId);
+        const res = await supabaseClient.from("wishlist_items").update(payload).eq("id", editId);
         error = res.error;
       } else {
         console.log("Adding new wish");
         payload.purchased = false;
-        const res = await supabase.from("wishlist_items").insert(payload);
+        const res = await supabaseClient.from("wishlist_items").insert(payload);
         error = res.error;
       }
 
@@ -437,11 +438,11 @@
       if (action === "toggle") {
         const wish = wishes.find(w => w.id === id);
         const newStatus = !wish.purchased;
-        await supabase.from("wishlist_items").update({ purchased: newStatus }).eq("id", id);
+        await supabaseClient.from("wishlist_items").update({ purchased: newStatus }).eq("id", id);
       } 
       else if (action === "delete") {
         if (confirm("Are you sure you want to remove this wish from the archive?")) {
-          await supabase.from("wishlist_items").delete().eq("id", id);
+          await supabaseClient.from("wishlist_items").delete().eq("id", id);
         }
       } 
       else if (action === "edit") {
