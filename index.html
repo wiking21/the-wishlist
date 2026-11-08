@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Supabase JavaScript Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root { --ink:#11110f; --paper:#eee8dc; --muted:#a59b8c; --pink:#e88b83; --red:#c65e55; --line:#393630; --mono:"DM Mono",monospace; --serif:"Playfair Display",Georgia,serif; }
     * { box-sizing:border-box }
@@ -16,15 +18,19 @@
     button,input,select,textarea { font:inherit }
     button { cursor:pointer }
     a { color:inherit }
+    .hidden { display: none !important; }
+    
     .nav { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:22px 4.5vw; border-bottom:1px solid #282722; text-transform:uppercase; font-size:11px; letter-spacing:.12em; }
     .nav a { text-decoration:none; opacity:.82 }
     .nav a:hover { color:var(--pink); opacity:1 }
     .brand { font-family:var(--serif); font-size:15px; letter-spacing:0; text-transform:none }
+    
     .hero { min-height:590px; position:relative; overflow:hidden; display:grid; place-items:center; padding:70px 5vw 95px; border-bottom:1px solid #282722; }
     .hero-title { z-index:2; text-align:center; font-family:var(--serif); font-weight:400; font-size:clamp(64px,11vw,145px); line-height:.82; letter-spacing:-.075em; text-shadow:0 4px 30px #000; }
     .hero-title span { display:block }
     .hero-note { position:absolute; z-index:3; bottom:35px; left:5vw; color:var(--muted); font-size:10px; letter-spacing:.13em; text-transform:uppercase }
     .hero-count { position:absolute; z-index:3; bottom:35px; right:5vw; color:var(--muted); font-size:10px; letter-spacing:.13em; }
+    
     .scrap { position:absolute; display:grid; place-items:center; filter:drop-shadow(0 12px 12px #0009); user-select:none; }
     .scrap img { width:100%; height:100%; object-fit:cover; display:block }
     .scrap.camera { width:180px; height:130px; left:15%; top:23%; transform:rotate(-9deg); background:#d98d9a; border:8px solid #d98d9a; border-radius:14px; color:#28201e; font-size:58px; }
@@ -33,10 +39,12 @@
     .scrap.ticket { left:22%; bottom:17%; width:170px; height:65px; transform:rotate(7deg); background:#d87962; color:#3e2923; padding:10px; font-size:10px; line-height:1.7; }
     .scrap.cherries { left:43%; bottom:12%; font-size:65px; transform:rotate(-8deg); }
     .scrap.star { right:30%; top:53%; font-size:52px; transform:rotate(15deg); color:#e8a1a0; }
+    
     .intro { display:flex; justify-content:space-between; gap:25px; align-items:end; padding:72px 5vw 35px; }
     .eyebrow { color:var(--pink); text-transform:uppercase; letter-spacing:.16em; font-size:10px; }
     h2 { font-family:var(--serif); font-weight:400; font-size:clamp(36px,5vw,62px); letter-spacing:-.05em; margin:12px 0 0; }
     .intro p { max-width:330px; color:var(--muted); font-size:11px; line-height:1.8; }
+    
     .toolbar { margin:0 5vw 30px; padding:16px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
     .filters { display:flex; gap:8px; flex-wrap:wrap; }
     .filter,.outline-btn { color:var(--paper); background:transparent; border:1px solid #514b42; padding:9px 13px; border-radius:0; font-size:10px; text-transform:uppercase; letter-spacing:.1em; }
@@ -45,6 +53,7 @@
     .search { width:180px; background:transparent; color:var(--paper); border:0; border-bottom:1px solid #625b50; padding:9px 4px; outline:none; font-size:11px; }
     .add { background:var(--pink); color:#211816; border:0; padding:11px 16px; font-size:10px; letter-spacing:.12em; text-transform:uppercase; }
     .add:hover { background:#f4aaa0 }
+    
     .grid { padding:0 5vw 100px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:38px 22px; }
     .item { min-width:0; position:relative; }
     .item-photo { height:280px; background:#24231f; display:grid; place-items:center; overflow:hidden; position:relative; }
@@ -60,7 +69,9 @@
     .text-btn { background:none; border:0; color:#a99f91; padding:0; font-size:9px; text-transform:uppercase; letter-spacing:.1em; text-decoration:underline; text-underline-offset:4px; }
     .text-btn:hover { color:var(--pink) }
     .empty { grid-column:1/-1; text-align:center; padding:80px 20px; color:var(--muted); font-size:12px; line-height:2; }
+    
     footer { border-top:1px solid #282722; padding:28px 5vw; display:flex; justify-content:space-between; color:#827a6e; font-size:9px; letter-spacing:.12em; text-transform:uppercase; }
+    
     dialog { width:min(520px,calc(100% - 28px)); border:1px solid #5a5147; background:#1b1a17; color:var(--paper); padding:28px; }
     dialog::backdrop { background:#000b; backdrop-filter:blur(4px) }
     .modal-head { display:flex; justify-content:space-between; align-items:start; margin-bottom:22px; }
@@ -75,59 +86,100 @@
     .field input:focus,.field select:focus,.field textarea:focus { border-color:var(--pink) }
     .form-bottom { display:flex; justify-content:space-between; align-items:center; margin-top:22px; gap:10px; }
     .hint { color:#8d8478; font-size:9px; line-height:1.5; }
+    
     @media(max-width:760px) { .nav { padding:18px 5vw; flex-wrap:wrap; } .nav a { font-size:9px } .hero { min-height:510px } .scrap.camera { left:5%; top:22%; width:130px; height:100px } .scrap.paper { right:7%; width:110px; height:150px } .scrap.ticket { left:7%; bottom:15%; width:140px } .scrap.flower { right:5%; bottom:19%; font-size:75px } .scrap.cherries { left:43%; bottom:10%; font-size:48px } .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:28px 13px } .item-photo { height:220px } .intro { display:block; padding-top:55px } .intro p { margin-top:18px } }
     @media(max-width:470px) { .grid { grid-template-columns:1fr 1fr } .item-photo { height:165px } .item-name { font-size:18px } .item-price { font-size:10px } .scrap.star { right:25%; top:55% } .hero-title { font-size:19vw } .form-grid { grid-template-columns:1fr } .field.full { grid-column:auto } footer { gap:15px; flex-wrap:wrap } }
   </style>
 </head>
 <body>
-  <nav class="nav">
-    <a class="brand" href="#">wishlist</a>
-    <a href="#home">home</a>
-    <a href="#wishlist">the wishlist</a>
-    <a href="#wishlist">categories</a>
-    <a href="#footer">contact</a>
-  </nav>
 
-  <header class="hero" id="home">
-    <div class="scrap camera" aria-hidden="true">📷</div>
-    <div class="scrap paper" aria-hidden="true">little<br>things<br>to keep<br>in mind ✳</div>
-    <div class="scrap flower" aria-hidden="true">🌼</div>
-    <div class="scrap ticket" aria-hidden="true">A SMALL LIST OF BIG WISHES<br>NO. 001 — PERSONAL ARCHIVE</div>
-    <div class="scrap cherries" aria-hidden="true">🍒</div>
-    <div class="scrap star" aria-hidden="true">✿</div>
-    <h1 class="hero-title"><span>the wish</span><span>archive.</span></h1>
-    <div class="hero-note">a collection of things to find someday</div>
-    <div class="hero-count" id="heroCount">0 wishes collected</div>
-  </header>
+  <!-- APP WRAPPER: Hidden until authenticated -->
+  <div id="app" class="hidden">
+    <nav class="nav">
+      <a class="brand" href="#">wishlist</a>
+      <a href="#home">home</a>
+      <a href="#wishlist">the wishlist</a>
+      <a href="#wishlist">categories</a>
+      <a href="#footer">contact</a>
+      <a href="#" id="logoutBtn" style="color: var(--pink);">sign out</a>
+    </nav>
 
-  <main id="wishlist">
-    <section class="intro">
-      <div><div class="eyebrow">No. 001 / the collection</div><h2>Things on my mind.</h2></div>
-      <p>A living little archive of things I love, things I need, and things I'm hoping to find. Some day, maybe.</p>
-    </section>
-    <section class="toolbar" aria-label="Wishlist controls">
-      <div class="filters" id="filters">
-        <button class="filter active" data-filter="all">all wishes</button>
-        <button class="filter" data-filter="Tech">tech</button>
-        <button class="filter" data-filter="Gaming">gaming</button>
-        <button class="filter" data-filter="Room">room</button>
-        <button class="filter" data-filter="Other">other</button>
-        <button class="filter" data-filter="got">collected</button>
+    <header class="hero" id="home">
+      <div class="scrap camera" aria-hidden="true">📷</div>
+      <div class="scrap paper" aria-hidden="true">little<br>things<br>to keep<br>in mind ✳</div>
+      <div class="scrap flower" aria-hidden="true">🌼</div>
+      <div class="scrap ticket" aria-hidden="true">A SMALL LIST OF BIG WISHES<br>NO. 001 — PERSONAL ARCHIVE</div>
+      <div class="scrap cherries" aria-hidden="true">🍒</div>
+      <div class="scrap star" aria-hidden="true">✿</div>
+      <h1 class="hero-title"><span>the wish</span><span>archive.</span></h1>
+      <div class="hero-note">a collection of things to find someday</div>
+      <div class="hero-count" id="heroCount">0 wishes collected</div>
+    </header>
+
+    <main id="wishlist">
+      <section class="intro">
+        <div><div class="eyebrow">No. 001 / the collection</div><h2>Things on my mind.</h2></div>
+        <p>A living little archive of things I love, things I need, and things I'm hoping to find. Some day, maybe.</p>
+      </section>
+      <section class="toolbar" aria-label="Wishlist controls">
+        <div class="filters" id="filters">
+          <button class="filter active" data-filter="all">all wishes</button>
+          <button class="filter" data-filter="Tech">tech</button>
+          <button class="filter" data-filter="Gaming">gaming</button>
+          <button class="filter" data-filter="Room">room</button>
+          <button class="filter" data-filter="Other">other</button>
+          <button class="filter" data-filter="got">collected</button>
+        </div>
+        <div class="tools">
+          <input class="search" id="search" type="search" placeholder="find something...">
+          <button class="add" id="openAdd">+ add a wish</button>
+        </div>
+      </section>
+      <section class="grid" id="items" aria-live="polite"></section>
+    </main>
+
+    <footer id="footer"><span>WISHLIST © 2026</span><span>made of little daydreams ✳</span></footer>
+  </div>
+
+  <!-- AUTH DIALOG -->
+  <dialog id="authDialog">
+    <form id="authForm">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">family access</div>
+          <h3>Sign in to the archive.</h3>
+        </div>
       </div>
-      <div class="tools">
-        <input class="search" id="search" type="search" placeholder="find something...">
-        <button class="add" id="openAdd">+ add a wish</button>
+      <div class="form-grid">
+        <div class="field full">
+          <label for="authEmail">Email</label>
+          <input id="authEmail" name="email" type="email" required placeholder="your@email.com">
+        </div>
+        <div class="field full">
+          <label for="authPassword">Password</label>
+          <input id="authPassword" name="password" type="password" required placeholder="••••••••">
+        </div>
       </div>
-    </section>
-    <section class="grid" id="items" aria-live="polite"></section>
-  </main>
+      <div class="form-bottom">
+        <span class="hint">Only invited family members can access this archive.</span>
+        <button class="add" type="submit">sign in ↗</button>
+      </div>
+      <div id="authError" style="color: var(--red); font-size: 10px; margin-top: 10px; display: none;"></div>
+    </form>
+  </dialog>
 
-  <footer id="footer"><span>WISHLIST © 2026</span><span>made of little daydreams ✳</span></footer>
-
+  <!-- ITEM DIALOG (Add / Edit) -->
   <dialog id="itemDialog">
     <form id="itemForm">
-      <div class="modal-head"><div><div class="eyebrow">add to the collection</div><h3>A new little wish.</h3></div><button class="close" type="button" id="closeDialog" aria-label="Close">×</button></div>
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow" id="dialogEyebrow">add to the collection</div>
+          <h3 id="dialogTitle">A new little wish.</h3>
+        </div>
+        <button class="close" type="button" id="closeDialog" aria-label="Close">×</button>
+      </div>
       <div class="form-grid">
+        <input type="hidden" id="editId" name="editId">
         <div class="field full"><label for="name">Item name *</label><input id="name" name="name" required maxlength="80" placeholder="e.g. a little camera"></div>
         <div class="field"><label for="price">Price</label><input id="price" name="price" placeholder="e.g. €49.99"></div>
         <div class="field"><label for="category">Category</label><select id="category" name="category"><option>Tech</option><option>Gaming</option><option>Room</option><option>Other</option></select></div>
@@ -135,71 +187,251 @@
         <div class="field full"><label for="link">Where to find it (link)</label><input id="link" name="link" type="url" placeholder="https://..."></div>
         <div class="field full"><label for="note">Little note</label><textarea id="note" name="note" maxlength="180" placeholder="Why is it on your list?"></textarea></div>
       </div>
-      <div class="form-bottom"><span class="hint">Your wishes are saved in this browser.<br>They aren't public or synced yet.</span><button class="add" type="submit">save this wish ↗</button></div>
+      <div class="form-bottom">
+        <span class="hint">Your wishes are synced securely with the family archive.</span>
+        <button class="add" type="submit" id="submitBtn">save this wish ↗</button>
+      </div>
     </form>
   </dialog>
 
   <script>
-    const STORAGE_KEY = "wishlist-items-v1";
-    const starter = [];
-    let wishes = load();
+    // ==========================================
+    // 1. SUPABASE CONFIGURATION
+    // ==========================================
+    // REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
+    const SUPABASE_URL = "YOUR_SUPABASE_URL"; 
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ==========================================
+    // 2. STATE & DOM ELEMENTS
+    // ==========================================
+    let wishes = [];
     let activeFilter = "all";
+    
+    const appEl = document.getElementById("app");
+    const authDialog = document.getElementById("authDialog");
+    const authForm = document.getElementById("authForm");
+    const authError = document.getElementById("authError");
+    const logoutBtn = document.getElementById("logoutBtn");
+    
     const itemsEl = document.getElementById("items");
-    const dialog = document.getElementById("itemDialog");
-    const form = document.getElementById("itemForm");
-    function load() {
-      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || starter; }
-      catch { return starter; }
+    const itemDialog = document.getElementById("itemDialog");
+    const itemForm = document.getElementById("itemForm");
+    const editIdInput = document.getElementById("editId");
+    const dialogEyebrow = document.getElementById("dialogEyebrow");
+    const dialogTitle = document.getElementById("dialogTitle");
+    const submitBtn = document.getElementById("submitBtn");
+
+    // ==========================================
+    // 3. AUTHENTICATION LOGIC
+    // ==========================================
+    async function checkAuth() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        appEl.classList.remove("hidden");
+        authDialog.close();
+        fetchWishes();
+        setupRealtime();
+      } else {
+        appEl.classList.add("hidden");
+        authDialog.showModal();
+      }
     }
-    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(wishes)); }
-    function safe(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        appEl.classList.remove("hidden");
+        authDialog.close();
+        fetchWishes();
+        setupRealtime();
+      } else if (event === 'SIGNED_OUT') {
+        appEl.classList.add("hidden");
+        wishes = [];
+        render();
+        authDialog.showModal();
+      }
+    });
+
+    authForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      authError.style.display = "none";
+      const email = document.getElementById("authEmail").value;
+      const password = document.getElementById("authPassword").value;
+
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        authError.textContent = error.message;
+        authError.style.display = "block";
+      }
+    });
+
+    logoutBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      await supabase.auth.signOut();
+    });
+
+    // ==========================================
+    // 4. DATABASE & REALTIME LOGIC
+    // ==========================================
+    async function fetchWishes() {
+      const { data, error } = await supabase
+        .from("wishlist_items")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching wishes:", error);
+      } else {
+        wishes = data || [];
+        render();
+      }
+    }
+
+    let realtimeChannel = null;
+    function setupRealtime() {
+      if (realtimeChannel) return; // Prevent duplicate subscriptions
+      
+      realtimeChannel = supabase
+        .channel("wishlist-changes")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "wishlist_items" },
+          () => {
+            fetchWishes(); // Re-fetch on any change (insert, update, delete)
+          }
+        )
+        .subscribe();
+    }
+
+    // ==========================================
+    // 5. RENDER LOGIC
+    // ==========================================
+    function safe(value) { 
+      return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); 
+    }
+
     function render() {
       const query = document.getElementById("search").value.trim().toLowerCase();
       const shown = wishes.filter(w => {
-        const categoryMatch = activeFilter === "all" || (activeFilter === "got" ? w.got : w.category === activeFilter && !w.got);
+        const categoryMatch = activeFilter === "all" || (activeFilter === "got" ? w.purchased : w.category === activeFilter && !w.purchased);
         const queryMatch = `${w.name} ${w.category} ${w.note}`.toLowerCase().includes(query);
         return categoryMatch && queryMatch;
       });
+
       document.getElementById("heroCount").textContent = `${wishes.length} ${wishes.length === 1 ? "wish" : "wishes"} collected`;
+
       if (!shown.length) {
         itemsEl.innerHTML = `<div class="empty">${wishes.length ? "Nothing in this corner of the archive yet." : "Your archive is waiting for its first little wish.<br>Click “+ add a wish” to start collecting."}</div>`;
         return;
       }
+
       itemsEl.innerHTML = shown.map(w => `
         <article class="item">
           <div class="item-photo">
-            ${w.image ? `<img src="${safe(w.image)}" alt="${safe(w.name)}" loading="lazy" onerror="this.remove();this.parentElement.insertAdjacentHTML('beforeend','<span class=&quot;placeholder&quot;>✳</span>')">` : `<span class="placeholder">✳</span>`}
-            <span class="item-tag">${w.got ? "collected" : safe(w.category)}</span>
+            ${w.image_url ? `<img src="${safe(w.image_url)}" alt="${safe(w.name)}" loading="lazy" onerror="this.remove();this.parentElement.insertAdjacentHTML('beforeend','<span class=&quot;placeholder&quot;>✳</span>')">` : `<span class="placeholder">✳</span>`}
+            <span class="item-tag">${w.purchased ? "collected" : safe(w.category)}</span>
           </div>
           <div class="item-info">
             <div class="item-name">${safe(w.name)}</div><div class="item-price">${safe(w.price || "—")}</div>
             <div class="item-note">${safe(w.note || "a wish for another day.")}</div>
             <div class="item-actions">
-              ${w.link ? `<a class="text-btn" href="${safe(w.link)}" target="_blank" rel="noopener noreferrer">find it ↗</a>` : ""}
-              <button class="text-btn" data-action="toggle" data-id="${w.id}">${w.got ? "move back" : "mark collected"}</button>
+              ${w.item_url ? `<a class="text-btn" href="${safe(w.item_url)}" target="_blank" rel="noopener noreferrer">find it ↗</a>` : ""}
+              <button class="text-btn" data-action="edit" data-id="${w.id}">edit</button>
+              <button class="text-btn" data-action="toggle" data-id="${w.id}">${w.purchased ? "move back" : "mark collected"}</button>
               <button class="text-btn" data-action="delete" data-id="${w.id}">remove</button>
             </div>
           </div>
         </article>`).join("");
     }
-    document.getElementById("openAdd").addEventListener("click", () => dialog.showModal());
-    document.getElementById("closeDialog").addEventListener("click", () => dialog.close());
-    dialog.addEventListener("click", e => { if (e.target === dialog) dialog.close(); });
-    form.addEventListener("submit", e => {
-      e.preventDefault();
-      const data = new FormData(form);
-      wishes.unshift({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), name: data.get("name").trim(), price: data.get("price").trim(), category: data.get("category"), image: data.get("image").trim(), link: data.get("link").trim(), note: data.get("note").trim(), got: false });
-      save(); form.reset(); dialog.close(); render();
+
+    // ==========================================
+    // 6. EVENT LISTENERS (ACTIONS)
+    // ==========================================
+    document.getElementById("openAdd").addEventListener("click", () => {
+      itemForm.reset();
+      editIdInput.value = "";
+      dialogEyebrow.textContent = "add to the collection";
+      dialogTitle.textContent = "A new little wish.";
+      submitBtn.textContent = "save this wish ↗";
+      itemDialog.showModal();
     });
-    itemsEl.addEventListener("click", e => {
+
+    document.getElementById("closeDialog").addEventListener("click", () => itemDialog.close());
+    itemDialog.addEventListener("click", e => { if (e.target === itemDialog) itemDialog.close(); });
+
+    itemForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(itemForm);
+      const payload = {
+        name: data.get("name").trim(),
+        price: data.get("price").trim(),
+        category: data.get("category"),
+        image_url: data.get("image").trim(),
+        item_url: data.get("link").trim(),
+        note: data.get("note").trim()
+      };
+
+      const editId = editIdInput.value;
+      let error = null;
+
+      if (editId) {
+        // Update existing
+        const res = await supabase.from("wishlist_items").update(payload).eq("id", editId);
+        error = res.error;
+      } else {
+        // Insert new
+        payload.purchased = false;
+        const res = await supabase.from("wishlist_items").insert(payload);
+        error = res.error;
+      }
+
+      if (error) {
+        console.error("Error saving wish:", error);
+        alert("Could not save the wish. Please check the console.");
+      } else {
+        itemForm.reset();
+        itemDialog.close();
+        // Realtime will trigger fetchWishes(), but we can also optimistically render if desired
+      }
+    });
+
+    itemsEl.addEventListener("click", async (e) => {
       const btn = e.target.closest("button[data-action]");
       if (!btn) return;
-      const wish = wishes.find(w => w.id === btn.dataset.id);
-      if (!wish) return;
-      if (btn.dataset.action === "toggle") wish.got = !wish.got;
-      if (btn.dataset.action === "delete") wishes = wishes.filter(w => w.id !== btn.dataset.id);
-      save(); render();
+      const id = btn.dataset.id;
+      const action = btn.dataset.action;
+
+      if (action === "toggle") {
+        const wish = wishes.find(w => w.id === id);
+        const newStatus = !wish.purchased;
+        await supabase.from("wishlist_items").update({ purchased: newStatus }).eq("id", id);
+      } 
+      else if (action === "delete") {
+        if (confirm("Are you sure you want to remove this wish from the archive?")) {
+          await supabase.from("wishlist_items").delete().eq("id", id);
+        }
+      } 
+      else if (action === "edit") {
+        const wish = wishes.find(w => w.id === id);
+        if (!wish) return;
+        
+        document.getElementById("name").value = wish.name;
+        document.getElementById("price").value = wish.price || "";
+        document.getElementById("category").value = wish.category;
+        document.getElementById("image").value = wish.image_url || "";
+        document.getElementById("link").value = wish.item_url || "";
+        document.getElementById("note").value = wish.note || "";
+        editIdInput.value = wish.id;
+        
+        dialogEyebrow.textContent = "update the collection";
+        dialogTitle.textContent = "Edit this little wish.";
+        submitBtn.textContent = "update this wish ↗";
+        itemDialog.showModal();
+      }
     });
+
     document.getElementById("filters").addEventListener("click", e => {
       const btn = e.target.closest("button[data-filter]");
       if (!btn) return;
@@ -207,8 +439,13 @@
       document.querySelectorAll(".filter").forEach(b => b.classList.toggle("active", b === btn));
       render();
     });
+
     document.getElementById("search").addEventListener("input", render);
-    render();
+
+    // ==========================================
+    // 7. INITIALIZATION
+    // ==========================================
+    checkAuth();
   </script>
 </body>
 </html>
