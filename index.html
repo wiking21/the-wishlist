@@ -198,11 +198,15 @@
     // ==========================================
     // 1. SUPABASE CONFIGURATION
     // ==========================================
-    // REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
-    const SUPABASE_URL = "YOUR_SUPABASE_URL"; 
-    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+    const SUPABASE_URL = "https://zfghphyxvlkpwiurxpxz.supabase.co"; 
+    const SUPABASE_ANON_KEY = "PASTE_YOUR_PUBLISHABLE_ANON_KEY_HERE"; // <-- REPLACE THIS WITH YOUR KEY
     
+    if (typeof window.supabase === 'undefined') {
+      console.error("❌ Supabase library failed to load. Check your internet connection.");
+    }
+
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log("✅ Supabase client initialized.");
 
     // ==========================================
     // 2. STATE & DOM ELEMENTS
@@ -225,22 +229,39 @@
     const submitBtn = document.getElementById("submitBtn");
 
     // ==========================================
-    // 3. AUTHENTICATION LOGIC
+    // 3. AUTHENTICATION LOGIC (With Error Handling)
     // ==========================================
     async function checkAuth() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        appEl.classList.remove("hidden");
-        authDialog.close();
-        fetchWishes();
-        setupRealtime();
-      } else {
+      try {
+        console.log("Checking authentication...");
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("❌ Supabase auth error:", error.message);
+        }
+
+        const session = data?.session;
+
+        if (session) {
+          console.log("✅ User is logged in:", session.user.email);
+          appEl.classList.remove("hidden");
+          authDialog.close();
+          fetchWishes();
+          setupRealtime();
+        } else {
+          console.log("ℹ️ No active session. Showing login dialog.");
+          appEl.classList.add("hidden");
+          authDialog.showModal();
+        }
+      } catch (err) {
+        console.error("❌ Critical error during auth check:", err);
         appEl.classList.add("hidden");
         authDialog.showModal();
       }
     }
 
     supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event);
       if (event === 'SIGNED_IN' && session) {
         appEl.classList.remove("hidden");
         authDialog.close();
@@ -260,10 +281,15 @@
       const email = document.getElementById("authEmail").value;
       const password = document.getElementById("authPassword").value;
 
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      console.log("Attempting login for:", email);
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
       if (error) {
-        authError.textContent = error.message;
+        console.error("❌ Login failed:", error.message);
+        authError.textContent = "Login failed: " + error.message;
         authError.style.display = "block";
+      } else {
+        console.log("✅ Login successful!");
       }
     });
 
@@ -276,33 +302,39 @@
     // 4. DATABASE & REALTIME LOGIC
     // ==========================================
     async function fetchWishes() {
+      console.log("Fetching wishes from database...");
       const { data, error } = await supabase
         .from("wishlist_items")
         .select("*")
         .order("created_at", { ascending: false });
       
       if (error) {
-        console.error("Error fetching wishes:", error);
+        console.error("❌ Error fetching wishes:", error.message);
       } else {
         wishes = data || [];
+        console.log(`✅ Fetched ${wishes.length} wishes.`);
         render();
       }
     }
 
     let realtimeChannel = null;
     function setupRealtime() {
-      if (realtimeChannel) return; // Prevent duplicate subscriptions
+      if (realtimeChannel) return; 
       
+      console.log("Setting up realtime sync...");
       realtimeChannel = supabase
         .channel("wishlist-changes")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "wishlist_items" },
-          () => {
-            fetchWishes(); // Re-fetch on any change (insert, update, delete)
+          (payload) => {
+            console.log("🔄 Database changed:", payload.eventType);
+            fetchWishes(); 
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log("Realtime subscription status:", status);
+        });
     }
 
     // ==========================================
@@ -377,23 +409,22 @@
       let error = null;
 
       if (editId) {
-        // Update existing
+        console.log("Updating wish:", editId);
         const res = await supabase.from("wishlist_items").update(payload).eq("id", editId);
         error = res.error;
       } else {
-        // Insert new
+        console.log("Adding new wish");
         payload.purchased = false;
         const res = await supabase.from("wishlist_items").insert(payload);
         error = res.error;
       }
 
       if (error) {
-        console.error("Error saving wish:", error);
-        alert("Could not save the wish. Please check the console.");
+        console.error("❌ Error saving wish:", error.message);
+        alert("Could not save the wish. Check the console for details.");
       } else {
         itemForm.reset();
         itemDialog.close();
-        // Realtime will trigger fetchWishes(), but we can also optimistically render if desired
       }
     });
 
